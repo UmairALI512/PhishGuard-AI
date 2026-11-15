@@ -23,10 +23,15 @@ from pydantic import BaseModel, field_validator
 
 MODEL_PATH = "model/phishguard_model.joblib"
 
+
 FIREBASE_KEY_PATH = os.getenv(
     "FIREBASE_KEY_PATH",
-    str(BASE_DIR / "firebase-service-account.json")
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "firebase-service-account.json"
+    )
 )
+
 
 DATABASE_PATH = "phishguard.db"
 
