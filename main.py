@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+import json
 
 import joblib
 import firebase_admin
@@ -51,18 +52,26 @@ phishing_index = classes.index(1)
 # 3. FIREBASE ADMIN INITIALIZATION
 # ==========================================
 
-if not os.path.exists(FIREBASE_KEY_PATH):
-    raise FileNotFoundError(
-        "Firebase service account JSON not found. "
-        "Place firebase-service-account.json in the project root."
-    )
 
 if not firebase_admin._apps:
-    firebase_credential = credentials.Certificate(
-        FIREBASE_KEY_PATH
-    )
+    firebase_json = os.getenv("FIREBASE_SERVICE_ACCOUNT")
+
+    if firebase_json:
+        firebase_credential = credentials.Certificate(
+            json.loads(firebase_json)
+        )
+    else:
+        if not os.path.exists(FIREBASE_KEY_PATH):
+            raise FileNotFoundError(
+                "Firebase service account JSON not found."
+            )
+
+        firebase_credential = credentials.Certificate(
+            FIREBASE_KEY_PATH
+        )
 
     firebase_admin.initialize_app(firebase_credential)
+
 
 
 # ==========================================
