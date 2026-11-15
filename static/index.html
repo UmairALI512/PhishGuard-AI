@@ -1,0 +1,180 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhishGuard AI | URL Security</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <div class="background-glow"></div>
+
+    <main class="auth-wrapper" id="authSection">
+        <section class="auth-card">
+            <div class="brand">
+                <div class="brand-icon">PG</div>
+                <div>
+                    <h1>PhishGuard <span>AI</span></h1>
+                    <p>Intelligent URL Threat Detection</p>
+                </div>
+            </div>
+
+            <div class="auth-heading">
+                <h2 id="authTitle">Welcome back</h2>
+                <p id="authSubtitle">Sign in to continue to your security dashboard.</p>
+            </div>
+
+            <form id="authForm">
+                <label for="email">Email address</label>
+                <input type="email" id="email" placeholder="you@example.com" required>
+
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter your password" required minlength="6">
+
+                <button type="submit" id="authButton">Sign In</button>
+            </form>
+
+            <p class="auth-message" id="authMessage"></p>
+
+            <p class="switch-auth">
+                <span id="switchText">Don't have an account?</span>
+                <button type="button" id="switchButton">Create account</button>
+            </p>
+        </section>
+    </main>
+
+    <main class="app-layout hidden" id="appSection">
+        <aside class="sidebar">
+            <div class="brand sidebar-brand">
+                <div class="brand-icon">PG</div>
+                <div>
+                    <h1>PhishGuard <span>AI</span></h1>
+                    <p>Security Platform</p>
+                </div>
+            </div>
+
+            <nav>
+                <button class="nav-button active" data-page="dashboard">Dashboard</button>
+                <button class="nav-button" data-page="analyze">Analyze URL</button>
+                <button class="nav-button" data-page="history">Scan History</button>
+                <button class="nav-button" data-page="insights">Model Insights</button>
+                <button class="nav-button" data-page="howto">How to Use</button>
+            </nav>
+
+            <div class="sidebar-bottom">
+                <p id="userEmail"></p>
+                <button class="logout-button" id="logoutButton">Log out</button>
+            </div>
+        </aside>
+
+        <section class="main-content">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">CYBERSECURITY / URL INTELLIGENCE</p>
+                    <h2 id="pageTitle">Dashboard</h2>
+                </div>
+                <div class="status-pill">● System Online</div>
+            </header>
+
+            <section class="page" id="dashboardPage">
+                <div class="welcome-panel">
+                    <div>
+                        <p class="eyebrow">THREAT MONITORING</p>
+                        <h2>Your URL Security Overview</h2>
+                        <p>Monitor your scans and identify potentially dangerous links.</p>
+                    </div>
+                    <button class="primary-button" data-go="analyze">Analyze a URL →</button>
+                </div>
+
+                <div class="stats-grid">
+                    <article class="stat-card">
+                        <p>Total Scans</p>
+                        <h3 id="totalScans">—</h3>
+                    </article>
+                    <article class="stat-card">
+                        <p>Phishing Detected</p>
+                        <h3 id="phishingScans">—</h3>
+                    </article>
+                    <article class="stat-card">
+                        <p>Legitimate URLs</p>
+                        <h3 id="legitimateScans">—</h3>
+                    </article>
+                    <article class="stat-card">
+                        <p>Suspicious URLs</p>
+                        <h3 id="suspiciousScans">—</h3>
+                    </article>
+                </div>
+
+                <div class="content-card">
+                    <div class="section-heading">
+                        <h3>Recent Activity</h3>
+                        <button class="text-button" data-go="history">View history</button>
+                    </div>
+                    <div id="recentScans" class="output-area">Loading your activity...</div>
+                </div>
+            </section>
+
+            <section class="page hidden" id="analyzePage">
+                <div class="content-card analyze-card">
+                    <p class="eyebrow">AI-POWERED URL ANALYSIS</p>
+                    <h2>Check a suspicious link</h2>
+                    <p>Paste a URL below to evaluate its potential phishing risk.</p>
+
+                    <form id="analyzeForm">
+                        <label for="urlInput">Website URL</label>
+                        <div class="url-input-row">
+                            <input type="text" id="urlInput" placeholder="https://example.com" required>
+                            <button class="primary-button" type="submit" id="analyzeButton">Analyze URL</button>
+                        </div>
+                    </form>
+
+                    <div id="analysisResult" class="result-area hidden"></div>
+                </div>
+            </section>
+
+            <section class="page hidden" id="historyPage">
+                <div class="content-card">
+                    <h2>Your Scan History</h2>
+                    <p>Previous URL analyses associated with your account.</p>
+                    <button class="secondary-button" id="refreshHistory">Refresh History</button>
+                    <div id="historyList" class="output-area">Loading history...</div>
+                </div>
+            </section>
+
+            <section class="page hidden" id="insightsPage">
+                <div class="content-card">
+                    <p class="eyebrow">MODEL PERFORMANCE</p>
+                    <h2>Model Insights</h2>
+                    <p>Current evaluation results from the held-out test dataset.</p>
+                    <div class="metrics-grid">
+                        <div class="metric"><span>Accuracy</span><strong>92.23%</strong></div>
+                        <div class="metric"><span>Precision</span><strong>88.94%</strong></div>
+                        <div class="metric"><span>Recall</span><strong>95.44%</strong></div>
+                        <div class="metric"><span>F1 Score</span><strong>92.08%</strong></div>
+                    </div>
+                    <p class="note">These are offline test results, not a guarantee that every URL will be classified correctly.</p>
+                </div>
+            </section>
+
+            <section class="page hidden" id="howtoPage">
+                <div class="content-card">
+                    <p class="eyebrow">GETTING STARTED</p>
+                    <h2>How to Use PhishGuard AI</h2>
+                    <ol class="howto-list">
+                        <li>Open the Analyze URL section.</li>
+                        <li>Paste the complete website link into the input field.</li>
+                        <li>Select Analyze URL and wait for the result.</li>
+                        <li>Review the risk score, prediction, and detection reasons.</li>
+                        <li>Visit Scan History to review your previous scans.</li>
+                    </ol>
+                    <p class="note">A Legitimate result does not guarantee that a website is safe. Avoid entering passwords or payment details on links you do not trust.</p>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <script type="module" src="/static/script.js"></script>
+</body>
+</html>
