@@ -1,18 +1,18 @@
-
 import os
-import sqlite3
 import ipaddress
+import json
 from datetime import datetime, timezone
 from urllib.parse import urlparse
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import json
 
 import joblib
 import firebase_admin
+import psycopg
+from psycopg.rows import dict_row
 
 from firebase_admin import credentials, auth
 from fastapi import FastAPI, HTTPException, Depends, Header, Query
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 
@@ -23,7 +23,6 @@ from pydantic import BaseModel, field_validator
 
 MODEL_PATH = "model/phishguard_model.joblib"
 
-
 FIREBASE_KEY_PATH = os.getenv(
     "FIREBASE_KEY_PATH",
     os.path.join(
@@ -32,8 +31,8 @@ FIREBASE_KEY_PATH = os.getenv(
     )
 )
 
-
-DATABASE_PATH = "phishguard.db"
+# Set DATABASE_URL in your environment (Neon PostgreSQL connection string).
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 # ==========================================
@@ -57,7 +56,6 @@ phishing_index = classes.index(1)
 # 3. FIREBASE ADMIN INITIALIZATION
 # ==========================================
 
-
 if not firebase_admin._apps:
     firebase_json = os.getenv("FIREBASE_SERVICE_ACCOUNT")
 
@@ -76,7 +74,6 @@ if not firebase_admin._apps:
         )
 
     firebase_admin.initialize_app(firebase_credential)
-
 
 
 # ==========================================
@@ -99,39 +96,45 @@ app.add_middleware(
 
 
 # ==========================================
-# 5. SQLITE DATABASE
+# 5. POSTGRESQL DATABASE
 # ==========================================
 
 def get_database():
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL is not configured. Add your Neon PostgreSQL "
+            "connection string to the DATABASE_URL environment variable."
+        )
 
-    connection = sqlite3.connect(DATABASE_PATH)
-    connection.row_factory = sqlite3.Row
-
-    return connection
+    return psycopg.connect(
+        DATABASE_URL,
+        row_factory=dict_row
+    )
 
 
 def create_database():
-
     connection = get_database()
 
-    connection.execute("""
-        CREATE TABLE IF NOT EXISTS scans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_uid TEXT NOT NULL,
-            url TEXT NOT NULL,
-            prediction TEXT NOT NULL,
-            risk_score REAL NOT NULL,
-            scanned_at TEXT NOT NULL
-        )
-    """)
+    try:
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS scans (
+                id BIGSERIAL PRIMARY KEY,
+                user_uid TEXT NOT NULL,
+                url TEXT NOT NULL,
+                prediction TEXT NOT NULL,
+                risk_score DOUBLE PRECISION NOT NULL,
+                scanned_at TEXT NOT NULL
+            )
+        """)
 
-    connection.execute("""
-        CREATE INDEX IF NOT EXISTS idx_scans_user
-        ON scans(user_uid)
-    """)
+        connection.execute("""
+            CREATE INDEX IF NOT EXISTS idx_scans_user
+            ON scans(user_uid)
+        """)
 
-    connection.commit()
-    connection.close()
+        connection.commit()
+    finally:
+        connection.close()
 
 
 create_database()
@@ -295,7 +298,7 @@ def get_detection_reasons(url, risk_score):
 
 
 # ==========================================
-# 9. SAVE SCAN IN SQLITE
+# 9. SAVE SCAN IN POSTGRESQL
 # ==========================================
 
 def save_scan(user_uid, url, prediction, risk_score):
@@ -306,28 +309,30 @@ def save_scan(user_uid, url, prediction, risk_score):
         timezone.utc
     ).isoformat()
 
-    connection.execute(
-        """
-        INSERT INTO scans (
-            user_uid,
-            url,
-            prediction,
-            risk_score,
-            scanned_at
+    try:
+        connection.execute(
+            """
+            INSERT INTO scans (
+                user_uid,
+                url,
+                prediction,
+                risk_score,
+                scanned_at
+            )
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                user_uid,
+                url,
+                prediction,
+                risk_score,
+                scanned_at
+            )
         )
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            user_uid,
-            url,
-            prediction,
-            risk_score,
-            scanned_at
-        )
-    )
 
-    connection.commit()
-    connection.close()
+        connection.commit()
+    finally:
+        connection.close()
 
 
 # ==========================================
@@ -337,11 +342,19 @@ def save_scan(user_uid, url, prediction, risk_score):
 @app.get("/api/health")
 def health_check():
 
+    try:
+        connection = get_database()
+        connection.execute("SELECT 1")
+        connection.close()
+        database_status = "connected"
+    except Exception:
+        database_status = "disconnected"
+
     return {
         "status": "online",
         "application": "PhishGuard AI",
         "model_loaded": True,
-        "database": "connected"
+        "database": database_status
     }
 
 
@@ -370,7 +383,6 @@ def analyze_url(
 ):
 
     try:
-
         url = request.url
 
         probabilities = model.predict_proba([url])[0]
@@ -424,7 +436,6 @@ def analyze_url(
         raise
 
     except Exception as error:
-
         raise HTTPException(
             status_code=500,
             detail=f"URL analysis failed: {str(error)}"
@@ -443,23 +454,24 @@ def scan_history(
 
     connection = get_database()
 
-    rows = connection.execute(
-        """
-        SELECT id, url, prediction, risk_score, scanned_at
-        FROM scans
-        WHERE user_uid = ?
-        ORDER BY id DESC
-        LIMIT ?
-        """,
-        (user["uid"], limit)
-    ).fetchall()
-
-    connection.close()
+    try:
+        rows = connection.execute(
+            """
+            SELECT id, url, prediction, risk_score, scanned_at
+            FROM scans
+            WHERE user_uid = %s
+            ORDER BY id DESC
+            LIMIT %s
+            """,
+            (user["uid"], limit)
+        ).fetchall()
+    finally:
+        connection.close()
 
     return {
         "success": True,
         "total_returned": len(rows),
-        "history": [dict(row) for row in rows]
+        "history": rows
     }
 
 
@@ -472,44 +484,45 @@ def dashboard(user=Depends(get_current_user)):
 
     connection = get_database()
 
-    stats = connection.execute(
-        """
-        SELECT
-            COUNT(*) AS total_scans,
+    try:
+        stats = connection.execute(
+            """
+            SELECT
+                COUNT(*) AS total_scans,
 
-            SUM(
-                CASE WHEN prediction = 'Phishing'
-                THEN 1 ELSE 0 END
-            ) AS phishing_count,
+                SUM(
+                    CASE WHEN prediction = 'Phishing'
+                    THEN 1 ELSE 0 END
+                ) AS phishing_count,
 
-            SUM(
-                CASE WHEN prediction = 'Legitimate'
-                THEN 1 ELSE 0 END
-            ) AS legitimate_count,
+                SUM(
+                    CASE WHEN prediction = 'Legitimate'
+                    THEN 1 ELSE 0 END
+                ) AS legitimate_count,
 
-            SUM(
-                CASE WHEN prediction = 'Suspicious'
-                THEN 1 ELSE 0 END
-            ) AS suspicious_count
+                SUM(
+                    CASE WHEN prediction = 'Suspicious'
+                    THEN 1 ELSE 0 END
+                ) AS suspicious_count
 
-        FROM scans
-        WHERE user_uid = ?
-        """,
-        (user["uid"],)
-    ).fetchone()
+            FROM scans
+            WHERE user_uid = %s
+            """,
+            (user["uid"],)
+        ).fetchone()
 
-    recent = connection.execute(
-        """
-        SELECT id, url, prediction, risk_score, scanned_at
-        FROM scans
-        WHERE user_uid = ?
-        ORDER BY id DESC
-        LIMIT 5
-        """,
-        (user["uid"],)
-    ).fetchall()
-
-    connection.close()
+        recent = connection.execute(
+            """
+            SELECT id, url, prediction, risk_score, scanned_at
+            FROM scans
+            WHERE user_uid = %s
+            ORDER BY id DESC
+            LIMIT 5
+            """,
+            (user["uid"],)
+        ).fetchall()
+    finally:
+        connection.close()
 
     return {
         "success": True,
@@ -519,13 +532,17 @@ def dashboard(user=Depends(get_current_user)):
             "legitimate": stats["legitimate_count"] or 0,
             "suspicious": stats["suspicious_count"] or 0
         },
-        "recent_scans": [dict(row) for row in recent]
+        "recent_scans": recent
     }
 
-# Serve frontend files
+
+# ==========================================
+# 15. FRONTEND FILES
+# ==========================================
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Main homepage
+
 @app.get("/")
 def home():
     return FileResponse("static/index.html")

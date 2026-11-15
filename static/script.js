@@ -169,29 +169,37 @@ function escapeHtml(value) {
     })[character]);
 }
 
+
 async function loadDashboard() {
     const recent = document.getElementById("recentScans");
 
     try {
         const data = await apiRequest("/api/dashboard");
 
+        console.log("DASHBOARD DATA:", data);
+
+        const stats = data.statistics || data;
+
         document.getElementById("totalScans").textContent =
-            data.total_scans ?? data.total ?? 0;
+            stats.total_scans ?? 0;
 
         document.getElementById("phishingScans").textContent =
-            data.phishing_scans ?? data.phishing ?? 0;
+            stats.phishing ?? 0;
 
         document.getElementById("legitimateScans").textContent =
-            data.legitimate_scans ?? data.legitimate ?? 0;
+            stats.legitimate ?? 0;
 
         document.getElementById("suspiciousScans").textContent =
-            data.suspicious_scans ?? data.suspicious ?? 0;
+            stats.suspicious ?? 0;
 
         displayScanItems(recent, data);
+
     } catch (error) {
         recent.textContent = error.message;
+        console.error("Dashboard error:", error);
     }
 }
+
 
 document.getElementById("analyzeForm").addEventListener("submit", async (event) => {
     event.preventDefault();
