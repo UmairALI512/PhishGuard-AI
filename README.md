@@ -108,14 +108,6 @@ Open the local application URL shown in your terminal or configured for your fro
 - Apply Machine Learning to a real-world cybersecurity problem.
 - Provide understandable URL analysis results.
 
-## 👨‍💻 Developer
-
-**Umair Ali**
-
-BS Information Technology  
-Shaheed Benazir Bhutto University (SBBU), Nawabshah
-
-**Roll Number:** 24BS(IT)-29
 
 ## ⚠️ Disclaimer
 
